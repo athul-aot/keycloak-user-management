@@ -7,6 +7,20 @@ export interface User {
   groups: Group[];
 }
 
+export interface NewUser {
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  enabled: boolean;
+  emailVerified: boolean;
+  credentials?: {
+    type: string;
+    value: string;
+    temporary: boolean;
+  }[];
+}
+
 export interface Group {
   id: string;
   name: string;

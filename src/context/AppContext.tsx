@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Group } from '../types';
+import { User, Group, NewUser } from '../types';
 import { 
   getAccessToken, 
   fetchUsers, 
   fetchAllGroups, 
-  addUserToGroup 
+  addUserToGroup,
+  createUser,
+  createGroup
 } from '../services/api';
 import { ToastMessage } from '../components/ToastContainer';
 
@@ -26,6 +28,9 @@ interface AppContextType {
   addUserToSelectedGroup: (userId: string) => Promise<void>;
   addAllUsersToSelectedGroup: () => Promise<void>;
   getUsersWithoutSelectedGroup: () => User[];
+  createNewUser: (userData: NewUser) => Promise<void>;
+  createNewGroup: (name: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -56,9 +61,26 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Initialize data on load
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      const [fetchedUsers, fetchedGroups] = await Promise.all([
+        fetchUsers(accessToken),
+        fetchAllGroups(accessToken)
+      ]);
+      
+      setUsers(fetchedUsers);
+      setGroups(fetchedGroups);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      addToast('error', 'Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const initializeData = async () => {
       try {
         setLoading(true);
         const token = await getAccessToken();
@@ -72,7 +94,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setUsers(fetchedUsers);
         setGroups(fetchedGroups);
         
-        // Set default group if available
         if (fetchedGroups.length > 0) {
           const defaultGroup = fetchedGroups.find(g => g.name === 'camunda-admin');
           if (defaultGroup) {
@@ -89,10 +110,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       }
     };
     
-    fetchData();
+    initializeData();
   }, []);
   
-  // Apply dark mode class to document
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -123,21 +143,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       setIsProcessing(true);
       
-      // Find the group ID for the selected group name
       const group = groups.find(g => g.name === selectedGroup);
       if (!group) {
         throw new Error(`Group ${selectedGroup} not found`);
       }
       
-      // Add user to group
       const success = await addUserToGroup(accessToken, userId, group.id);
       
       if (success) {
-        // Update the user in the state with the new group
         setUsers(prevUsers => 
           prevUsers.map(user => {
             if (user.id === userId) {
-              // Check if user already has this group
               const hasGroup = user.groups.some(g => g.id === group.id);
               if (!hasGroup) {
                 return {
@@ -178,13 +194,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       setIsProcessing(true);
       
-      // Find the group ID for the selected group name
       const group = groups.find(g => g.name === selectedGroup);
       if (!group) {
         throw new Error(`Group ${selectedGroup} not found`);
       }
       
-      // Add all users to group
       let successCount = 0;
       for (const user of usersToUpdate) {
         const success = await addUserToGroup(accessToken, user.id, group.id);
@@ -194,12 +208,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       }
       
       if (successCount > 0) {
-        // Update users in state
         setUsers(prevUsers => 
           prevUsers.map(user => {
-            // Check if this user needs the group
             if (usersToUpdate.some(u => u.id === user.id)) {
-              // Check if user already has this group
               const hasGroup = user.groups.some(g => g.id === group.id);
               if (!hasGroup) {
                 return {
@@ -232,19 +243,55 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       !user.groups.some(group => group.name === selectedGroup)
     );
   };
-  
-  // Filter users based on search query
-  const getFilteredUsers = () => {
-    if (!searchQuery) return users;
-    
-    const query = searchQuery.toLowerCase();
-    return users.filter(user => 
-      user.username.toLowerCase().includes(query) ||
-      (user.firstName && user.firstName.toLowerCase().includes(query)) ||
-      (user.lastName && user.lastName.toLowerCase().includes(query)) ||
-      (user.email && user.email.toLowerCase().includes(query)) ||
-      user.groups.some(group => group.name.toLowerCase().includes(query))
-    );
+
+  const createNewUser = async (userData: NewUser) => {
+    if (!accessToken) {
+      addToast('error', 'Not authenticated. Please refresh the page.');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const success = await createUser(accessToken, userData);
+      
+      if (success) {
+        addToast('success', `User ${userData.username} created successfully`);
+        await refreshData();
+      } else {
+        throw new Error('Failed to create user');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      addToast('error', 'Failed to create user');
+      throw err;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const createNewGroup = async (name: string) => {
+    if (!accessToken) {
+      addToast('error', 'Not authenticated. Please refresh the page.');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const success = await createGroup(accessToken, name);
+      
+      if (success) {
+        addToast('success', `Group ${name} created successfully`);
+        await refreshData();
+      } else {
+        throw new Error('Failed to create group');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      addToast('error', 'Failed to create group');
+      throw err;
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const contextValue: AppContextType = {
@@ -264,7 +311,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     removeToast,
     addUserToSelectedGroup,
     addAllUsersToSelectedGroup,
-    getUsersWithoutSelectedGroup
+    getUsersWithoutSelectedGroup,
+    createNewUser,
+    createNewGroup,
+    refreshData
   };
 
   return (

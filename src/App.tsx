@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import GroupActions from './components/GroupActions';
 import UserList from './components/UserList';
 import ToastContainer from './components/ToastContainer';
+import CreateUserModal from './components/CreateUserModal';
+import { UserPlus } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { 
@@ -22,8 +24,12 @@ const AppContent: React.FC = () => {
     removeToast,
     addUserToSelectedGroup,
     addAllUsersToSelectedGroup,
-    getUsersWithoutSelectedGroup
+    getUsersWithoutSelectedGroup,
+    createNewUser,
+    createNewGroup
   } = useAppContext();
+
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
 
   // Filter users based on search query
   const filteredUsers = React.useMemo(() => {
@@ -31,11 +37,11 @@ const AppContent: React.FC = () => {
     
     const query = searchQuery.toLowerCase();
     return users.filter(user => 
-      user.username.toLowerCase().includes(query) ||
-      (user.firstName && user.firstName.toLowerCase().includes(query)) ||
-      (user.lastName && user.lastName.toLowerCase().includes(query)) ||
-      (user.email && user.email.toLowerCase().includes(query)) ||
-      user.groups.some(group => group.name.toLowerCase().includes(query))
+      user.username.toLowerCase().includes(query)
+      || (user.firstName && user.firstName.toLowerCase().includes(query))
+      || (user.lastName && user.lastName.toLowerCase().includes(query))
+      || (user.email && user.email.toLowerCase().includes(query))
+      || user.groups.some(group => group.name.toLowerCase().includes(query))
     );
   }, [users, searchQuery]);
 
@@ -56,6 +62,13 @@ const AppContent: React.FC = () => {
               setSearchQuery={setSearchQuery} 
               placeholder="Search users by name, email, or group..."
             />
+            <button
+              onClick={() => setIsCreateUserModalOpen(true)}
+              className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+            >
+              <UserPlus className="h-5 w-5 mr-2" />
+              Create User
+            </button>
           </div>
           
           {loading ? (
@@ -74,6 +87,7 @@ const AppContent: React.FC = () => {
                 selectedGroup={selectedGroup}
                 onSelectGroup={setSelectedGroup}
                 onAddGroupToAll={addAllUsersToSelectedGroup}
+                onCreateGroup={createNewGroup}
                 usersWithoutGroup={usersWithoutGroup}
                 isProcessing={isProcessing}
               />
@@ -100,6 +114,13 @@ const AppContent: React.FC = () => {
       </footer>
       
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      
+      <CreateUserModal
+        isOpen={isCreateUserModalOpen}
+        onClose={() => setIsCreateUserModalOpen(false)}
+        onSubmit={createNewUser}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 };
