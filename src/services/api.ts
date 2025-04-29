@@ -27,6 +27,32 @@ export async function getAccessToken(config: ApiConfig = defaultConfig) {
   return data.access_token;
 }
 
+export async function createUser(token: string, userData: NewUser, config: ApiConfig = defaultConfig): Promise<boolean> {
+  const response = await fetch(`${config.baseUrl}/auth/admin/realms/${config.realm}/users`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(userData)
+  });
+
+  return response.ok;
+}
+
+export async function createGroup(token: string, name: string, config: ApiConfig = defaultConfig): Promise<boolean> {
+  const response = await fetch(`${config.baseUrl}/auth/admin/realms/${config.realm}/groups`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name })
+  });
+
+  return response.ok;
+}
+
 export async function fetchUsers(token: string, config: ApiConfig = defaultConfig): Promise<User[]> {
   const response = await fetch(`${config.baseUrl}/auth/admin/realms/${config.realm}/users`, {
     headers: {
