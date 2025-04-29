@@ -1,10 +1,10 @@
-import { ApiConfig, Group, User } from '../types';
+import { ApiConfig, Group, User, NewUser } from '../types';
 
 export const defaultConfig: ApiConfig = {
-  baseUrl: 'http://192.168.1.169:8080',
-  realm: 'forms-flow-ai',
-  clientId: 'forms-flow-bpm',
-  clientSecret: 'e4bdbd25-1467-4f7f-b993-bc4b1944c943'
+  baseUrl: import.meta.env.VITE_BASE_URL, // http://192.168.1.169:8080
+  realm: import.meta.env.VITE_REALM_NAME, //forms-flow-ai
+  clientId: import.meta.env.VITE_CLIENT_ID, // forms-flow-ai
+  clientSecret: import.meta.env.VITE_CLIENT_SECRET, // client secret
 };
 
 export async function getAccessToken(config: ApiConfig = defaultConfig) {
@@ -40,7 +40,6 @@ export async function fetchUsers(token: string, config: ApiConfig = defaultConfi
 
   const users = await response.json();
   
-  // Fetch groups for each user
   const usersWithGroups = await Promise.all(
     users.map(async (user: any) => {
       const groups = await fetchUserGroups(token, user.id, config);
