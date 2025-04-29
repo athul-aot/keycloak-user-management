@@ -1,10 +1,10 @@
 import { ApiConfig, Group, User, NewUser } from '../types';
 
 export const defaultConfig: ApiConfig = {
-  baseUrl: import.meta.env.VITE_BASE_URL, // http://192.168.1.169:8080
-  realm: import.meta.env.VITE_REALM_NAME, //forms-flow-ai
-  clientId: import.meta.env.VITE_CLIENT_ID, // forms-flow-ai
-  clientSecret: import.meta.env.VITE_CLIENT_SECRET, // client secret
+  baseUrl: import.meta.env.VITE_BASE_URL, // http://{ip-address}:8080
+  realm: import.meta.env.VITE_REALM_NAME, // realm_name
+  clientId: import.meta.env.VITE_CLIENT_ID, // client_id
+  clientSecret: import.meta.env.VITE_CLIENT_SECRET, // client_secret
 };
 
 export async function getAccessToken(config: ApiConfig = defaultConfig) {
