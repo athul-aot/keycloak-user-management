@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Group, NewUser } from '../types';
+import { User, Group, NewUser, NewGroup } from '../types';
 import { 
   getAccessToken, 
   fetchUsers, 
   fetchAllGroups, 
   addUserToGroup,
+  removeUserFromGroup,
   createUser,
   createGroup
 } from '../services/api';
@@ -20,17 +21,19 @@ interface AppContextType {
   searchQuery: string;
   toasts: ToastMessage[];
   isProcessing: boolean;
-  setSelectedGroup: (group: string) => void;
+  setSelectedGroup: (groupId: string) => void;
   setSearchQuery: (query: string) => void;
   toggleDarkMode: () => void;
   addToast: (type: ToastMessage['type'], message: string) => void;
   removeToast: (id: string) => void;
   addUserToSelectedGroup: (userId: string) => Promise<void>;
+  removeUserFromSelectedGroup: (userId: string, groupId: string) => Promise<void>;
   addAllUsersToSelectedGroup: () => Promise<void>;
   getUsersWithoutSelectedGroup: () => User[];
   createNewUser: (userData: NewUser) => Promise<void>;
-  createNewGroup: (name: string) => Promise<void>;
+  createNewGroup: (name: string, parentGroup?: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  getGroupNameById: (groupId: string) => string;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -53,13 +56,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string>('');
-  const [selectedGroup, setSelectedGroup] = useState<string>('camunda-admin');
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [darkMode, setDarkMode] = useState<boolean>(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches
   );
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const getGroupNameById = (groupId: string): string => {
+    const findGroupName = (groups: Group[], id: string): string => {
+      for (const group of groups) {
+        if (group.id === id) return group.name;
+        if (group.subGroups && group.subGroups.length > 0) {
+          const found = findGroupName(group.subGroups, id);
+          if (found) return found;
+        }
+      }
+      return '';
+    };
+    return findGroupName(groups, groupId);
+  };
 
   const refreshData = async () => {
     try {
@@ -97,9 +114,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         if (fetchedGroups.length > 0) {
           const defaultGroup = fetchedGroups.find(g => g.name === 'camunda-admin');
           if (defaultGroup) {
-            setSelectedGroup(defaultGroup.name);
+            setSelectedGroup(defaultGroup.id);
           } else {
-            setSelectedGroup(fetchedGroups[0].name);
+            setSelectedGroup(fetchedGroups[0].id);
           }
         }
       } catch (err) {
@@ -143,22 +160,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       setIsProcessing(true);
       
-      const group = groups.find(g => g.name === selectedGroup);
-      if (!group) {
-        throw new Error(`Group ${selectedGroup} not found`);
-      }
-      
-      const success = await addUserToGroup(accessToken, userId, group.id);
+      const success = await addUserToGroup(accessToken, userId, selectedGroup);
       
       if (success) {
+        const selectedGroupName = getGroupNameById(selectedGroup);
         setUsers(prevUsers => 
           prevUsers.map(user => {
             if (user.id === userId) {
-              const hasGroup = user.groups.some(g => g.id === group.id);
+              const hasGroup = user.groups.some(g => g.id === selectedGroup);
               if (!hasGroup) {
                 return {
                   ...user,
-                  groups: [...user.groups, group]
+                  groups: [...user.groups, { id: selectedGroup, name: selectedGroupName }]
                 };
               }
             }
@@ -167,13 +180,51 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         );
         
         const user = users.find(u => u.id === userId);
-        addToast('success', `Added ${user?.username || 'user'} to ${selectedGroup} group`);
+        addToast('success', `Added ${user?.username || 'user'} to ${selectedGroupName} group`);
       } else {
         throw new Error('Failed to add user to group');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
       addToast('error', 'Failed to add user to group');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const removeUserFromSelectedGroup = async (userId: string, groupId: string) => {
+    if (!accessToken) {
+      addToast('error', 'Not authenticated. Please refresh the page.');
+      return;
+    }
+    
+    try {
+      setIsProcessing(true);
+      
+      const success = await removeUserFromGroup(accessToken, userId, groupId);
+      
+      if (success) {
+        setUsers(prevUsers => 
+          prevUsers.map(user => {
+            if (user.id === userId) {
+              return {
+                ...user,
+                groups: user.groups.filter(g => g.id !== groupId)
+              };
+            }
+            return user;
+          })
+        );
+        
+        const user = users.find(u => u.id === userId);
+        const groupName = getGroupNameById(groupId);
+        addToast('success', `Removed ${user?.username || 'user'} from ${groupName} group`);
+      } else {
+        throw new Error('Failed to remove user from group');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      addToast('error', 'Failed to remove user from group');
     } finally {
       setIsProcessing(false);
     }
@@ -193,15 +244,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     
     try {
       setIsProcessing(true);
-      
-      const group = groups.find(g => g.name === selectedGroup);
-      if (!group) {
-        throw new Error(`Group ${selectedGroup} not found`);
-      }
+      const selectedGroupName = getGroupNameById(selectedGroup);
       
       let successCount = 0;
       for (const user of usersToUpdate) {
-        const success = await addUserToGroup(accessToken, user.id, group.id);
+        const success = await addUserToGroup(accessToken, user.id, selectedGroup);
         if (success) {
           successCount++;
         }
@@ -211,11 +258,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setUsers(prevUsers => 
           prevUsers.map(user => {
             if (usersToUpdate.some(u => u.id === user.id)) {
-              const hasGroup = user.groups.some(g => g.id === group.id);
+              const hasGroup = user.groups.some(g => g.id === selectedGroup);
               if (!hasGroup) {
                 return {
                   ...user,
-                  groups: [...user.groups, group]
+                  groups: [...user.groups, { id: selectedGroup, name: selectedGroupName }]
                 };
               }
             }
@@ -225,7 +272,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         
         addToast(
           'success', 
-          `Added ${successCount} user${successCount !== 1 ? 's' : ''} to ${selectedGroup} group`
+          `Added ${successCount} user${successCount !== 1 ? 's' : ''} to ${selectedGroupName} group`
         );
       } else {
         throw new Error('Failed to add users to group');
@@ -240,7 +287,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   
   const getUsersWithoutSelectedGroup = () => {
     return users.filter(user => 
-      !user.groups.some(group => group.name === selectedGroup)
+      !user.groups.some(group => group.id === selectedGroup)
     );
   };
 
@@ -269,7 +316,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
-  const createNewGroup = async (name: string) => {
+  const createNewGroup = async (name: string, parentGroup?: string) => {
     if (!accessToken) {
       addToast('error', 'Not authenticated. Please refresh the page.');
       return;
@@ -277,7 +324,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
     try {
       setIsProcessing(true);
-      const success = await createGroup(accessToken, name);
+      const groupData: NewGroup = { name, parentGroup };
+      const success = await createGroup(accessToken, groupData);
       
       if (success) {
         addToast('success', `Group ${name} created successfully`);
@@ -310,11 +358,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     addToast,
     removeToast,
     addUserToSelectedGroup,
+    removeUserFromSelectedGroup,
     addAllUsersToSelectedGroup,
     getUsersWithoutSelectedGroup,
     createNewUser,
     createNewGroup,
-    refreshData
+    refreshData,
+    getGroupNameById
   };
 
   return (

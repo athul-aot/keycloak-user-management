@@ -23,6 +23,7 @@ const AppContent: React.FC = () => {
     toggleDarkMode,
     removeToast,
     addUserToSelectedGroup,
+    removeUserFromSelectedGroup,
     addAllUsersToSelectedGroup,
     getUsersWithoutSelectedGroup,
     createNewUser,
@@ -98,6 +99,7 @@ const AppContent: React.FC = () => {
                 searchQuery={searchQuery}
                 targetGroup={selectedGroup}
                 onAddUserToGroup={addUserToSelectedGroup}
+                onRemoveUserFromGroup={removeUserFromSelectedGroup}
                 isProcessing={isProcessing}
               />
             </>
