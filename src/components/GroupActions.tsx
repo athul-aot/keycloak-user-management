@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Group } from '../types';
 import { CheckCircle, UserPlus, Plus } from 'lucide-react';
 import CreateGroupModal from './CreateGroupModal';
+import ConfirmDialog from './ConfirmDialog';
+import { useAppContext } from '../context/AppContext';
 
 interface GroupActionsProps {
   groups: Group[];
@@ -23,6 +25,8 @@ const GroupActions: React.FC<GroupActionsProps> = ({
   isProcessing
 }) => {
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+  const [showConfirmAddAll, setShowConfirmAddAll] = useState(false);
+  const { getGroupNameById } = useAppContext();
 
   const renderGroupOptions = (groups: Group[], level = 0): JSX.Element[] => {
     return groups.flatMap(group => {
@@ -39,6 +43,10 @@ const GroupActions: React.FC<GroupActionsProps> = ({
       
       return options;
     });
+  };
+
+  const handleAddGroupToAll = () => {
+    setShowConfirmAddAll(true);
   };
 
   return (
@@ -72,7 +80,7 @@ const GroupActions: React.FC<GroupActionsProps> = ({
           
           <div className="flex-shrink-0">
             <button
-              onClick={onAddGroupToAll}
+              onClick={handleAddGroupToAll}
               disabled={isProcessing || usersWithoutGroup === 0}
               className={`
                 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md
@@ -110,6 +118,18 @@ const GroupActions: React.FC<GroupActionsProps> = ({
         onSubmit={onCreateGroup}
         isProcessing={isProcessing}
         existingGroups={groups}
+      />
+
+      <ConfirmDialog
+        isOpen={showConfirmAddAll}
+        title="Add Group to All Users"
+        message={`Are you sure you want to add ${getGroupNameById(selectedGroup)} group to All user${usersWithoutGroup !== 1 ? 's' : ''}?`}
+        confirmLabel="Add to All"
+        onConfirm={() => {
+          onAddGroupToAll();
+          setShowConfirmAddAll(false);
+        }}
+        onCancel={() => setShowConfirmAddAll(false)}
       />
     </>
   );
