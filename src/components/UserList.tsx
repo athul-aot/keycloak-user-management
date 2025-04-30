@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import UserCard from './UserCard';
+import { UserPlus } from 'lucide-react';
 
 interface UserListProps {
   users: User[];
@@ -8,6 +9,7 @@ interface UserListProps {
   searchQuery: string;
   targetGroup: string;
   onAddUserToGroup: (userId: string) => void;
+  onRemoveUserFromGroup: (userId: string, groupId: string) => void;
   isProcessing: boolean;
 }
 
@@ -17,8 +19,30 @@ const UserList: React.FC<UserListProps> = ({
   searchQuery,
   targetGroup,
   onAddUserToGroup,
+  onRemoveUserFromGroup,
   isProcessing
 }) => {
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+
+  const handleToggleSelect = (userId: string) => {
+    setSelectedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddSelectedToGroup = async () => {
+    for (const userId of selectedUsers) {
+      await onAddUserToGroup(userId);
+    }
+    setSelectedUsers(new Set()); // Clear selection after adding
+  };
+
   if (users.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow-sm border border-gray-200 dark:border-gray-700">
@@ -34,6 +58,11 @@ const UserList: React.FC<UserListProps> = ({
       </div>
     );
   }
+
+  const selectedUsersWithoutGroup = Array.from(selectedUsers).filter(userId => {
+    const user = users.find(u => u.id === userId);
+    return user && !user.groups.some(g => g.name === targetGroup);
+  });
   
   return (
     <div>
@@ -41,9 +70,25 @@ const UserList: React.FC<UserListProps> = ({
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
           Users {searchQuery && `matching "${searchQuery}"`}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {filteredUsers.length} of {users.length} users
-        </p>
+        <div className="flex items-center gap-4">
+          {selectedUsersWithoutGroup.length > 0 && (
+            <button
+              onClick={handleAddSelectedToGroup}
+              disabled={isProcessing}
+              className={`
+                flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md
+                hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500
+                ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Selected to Group ({selectedUsersWithoutGroup.length})
+            </button>
+          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {filteredUsers.length} of {users.length} users
+          </p>
+        </div>
       </div>
       
       <div className="space-y-4">
@@ -53,7 +98,10 @@ const UserList: React.FC<UserListProps> = ({
             user={user} 
             targetGroup={targetGroup}
             onAddToGroup={onAddUserToGroup}
+            onRemoveFromGroup={onRemoveUserFromGroup}
             isProcessing={isProcessing}
+            isSelected={selectedUsers.has(user.id)}
+            onToggleSelect={handleToggleSelect}
           />
         ))}
       </div>

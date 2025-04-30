@@ -25,6 +25,8 @@ export interface Group {
   id: string;
   name: string;
   path?: string;
+  subGroups?: Group[];
+  parentGroup?: string;
 }
 
 export interface ApiConfig {
@@ -32,4 +34,9 @@ export interface ApiConfig {
   realm: string;
   clientId: string;
   clientSecret: string;
+}
+
+export interface NewGroup {
+  name: string;
+  parentGroup?: string;
 }

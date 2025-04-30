@@ -6,9 +6,9 @@ import CreateGroupModal from './CreateGroupModal';
 interface GroupActionsProps {
   groups: Group[];
   selectedGroup: string;
-  onSelectGroup: (groupName: string) => void;
+  onSelectGroup: (groupId: string) => void;
   onAddGroupToAll: () => void;
-  onCreateGroup: (name: string) => Promise<void>;
+  onCreateGroup: (name: string, parentGroup?: string) => Promise<void>;
   usersWithoutGroup: number;
   isProcessing: boolean;
 }
@@ -23,6 +23,23 @@ const GroupActions: React.FC<GroupActionsProps> = ({
   isProcessing
 }) => {
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+
+  const renderGroupOptions = (groups: Group[], level = 0): JSX.Element[] => {
+    return groups.flatMap(group => {
+      const indent = '\u00A0'.repeat(level * 4);
+      const options = [(
+        <option key={group.id} value={group.id}>
+          {indent}{group.name}
+        </option>
+      )];
+      
+      if (group.subGroups && group.subGroups.length > 0) {
+        options.push(...renderGroupOptions(group.subGroups, level + 1));
+      }
+      
+      return options;
+    });
+  };
 
   return (
     <>
@@ -41,11 +58,7 @@ const GroupActions: React.FC<GroupActionsProps> = ({
                 onChange={(e) => onSelectGroup(e.target.value)}
                 className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
-                {groups.map(group => (
-                  <option key={group.id} value={group.name}>
-                    {group.name}
-                  </option>
-                ))}
+                {renderGroupOptions(groups)}
               </select>
               <button
                 onClick={() => setIsCreateGroupModalOpen(true)}
@@ -96,6 +109,7 @@ const GroupActions: React.FC<GroupActionsProps> = ({
         onClose={() => setIsCreateGroupModalOpen(false)}
         onSubmit={onCreateGroup}
         isProcessing={isProcessing}
+        existingGroups={groups}
       />
     </>
   );

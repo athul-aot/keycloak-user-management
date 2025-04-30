@@ -1,24 +1,33 @@
 import React, { useState } from 'react';
-import { User as UserIcon, ChevronDown, ChevronUp, UserPlus } from 'lucide-react';
+import { User as UserIcon, ChevronDown, ChevronUp, UserMinus } from 'lucide-react';
 import { User, Group } from '../types';
 import GroupBadge from './GroupBadge';
+import { useAppContext } from '../context/AppContext';
 
 interface UserCardProps {
   user: User;
   targetGroup: string;
   onAddToGroup: (userId: string) => void;
+  onRemoveFromGroup: (userId: string, groupId: string) => void;
   isProcessing: boolean;
+  isSelected: boolean;
+  onToggleSelect: (userId: string) => void;
 }
 
 const UserCard: React.FC<UserCardProps> = ({ 
   user, 
   targetGroup, 
   onAddToGroup,
-  isProcessing
+  onRemoveFromGroup,
+  isProcessing,
+  isSelected,
+  onToggleSelect
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const { getGroupNameById } = useAppContext();
   
-  const hasTargetGroup = user.groups.some(group => group.name === targetGroup);
+  const hasTargetGroup = user.groups.some(group => group.id === targetGroup);
+  const targetGroupObj = user.groups.find(group => group.id === targetGroup);
   
   return (
     <div className={`
@@ -29,6 +38,12 @@ const UserCard: React.FC<UserCardProps> = ({
     `}>
       <div className="flex justify-between items-start">
         <div className="flex items-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(user.id)}
+            className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+          />
           <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-full mr-3">
             <UserIcon className="h-5 w-5 text-gray-500 dark:text-gray-300" />
           </div>
@@ -43,17 +58,17 @@ const UserCard: React.FC<UserCardProps> = ({
         </div>
         
         <div className="flex items-center space-x-2">
-          {!hasTargetGroup && (
+          {hasTargetGroup && targetGroupObj && (
             <button 
-              onClick={() => onAddToGroup(user.id)}
+              onClick={() => onRemoveFromGroup(user.id, targetGroupObj.id)}
               disabled={isProcessing}
               className={`
-                p-1.5 rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-colors
+                p-1.5 rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors
                 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
               `}
-              title={`Add ${user.username} to ${targetGroup} group`}
+              title={`Remove ${user.username} from ${getGroupNameById(targetGroupObj.id)} group`}
             >
-              <UserPlus className="h-4 w-4" />
+              <UserMinus className="h-4 w-4" />
             </button>
           )}
           
@@ -79,8 +94,8 @@ const UserCard: React.FC<UserCardProps> = ({
               user.groups.map(group => (
                 <GroupBadge 
                   key={group.id} 
-                  name={group.name} 
-                  isHighlighted={group.name === targetGroup} 
+                  name={getGroupNameById(group.id)} 
+                  isHighlighted={group.id === targetGroup} 
                 />
               ))
             ) : (
