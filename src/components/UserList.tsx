@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import UserCard from './UserCard';
 import { UserPlus } from 'lucide-react';
+import ConfirmDialog from './ConfirmDialog';
+import { useAppContext } from '../context/AppContext';
 
 interface UserListProps {
   users: User[];
@@ -23,6 +25,8 @@ const UserList: React.FC<UserListProps> = ({
   isProcessing
 }) => {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [showConfirmAdd, setShowConfirmAdd] = useState(false);
+  const { getGroupNameById } = useAppContext();
 
   const handleToggleSelect = (userId: string) => {
     setSelectedUsers(prev => {
@@ -36,11 +40,16 @@ const UserList: React.FC<UserListProps> = ({
     });
   };
 
-  const handleAddSelectedToGroup = async () => {
+  const handleAddSelectedToGroup = () => {
+    setShowConfirmAdd(true);
+  };
+
+  const confirmAddSelectedToGroup = async () => {
     for (const userId of selectedUsers) {
       await onAddUserToGroup(userId);
     }
     setSelectedUsers(new Set()); // Clear selection after adding
+    setShowConfirmAdd(false);
   };
 
   if (users.length === 0) {
@@ -61,7 +70,7 @@ const UserList: React.FC<UserListProps> = ({
 
   const selectedUsersWithoutGroup = Array.from(selectedUsers).filter(userId => {
     const user = users.find(u => u.id === userId);
-    return user && !user.groups.some(g => g.name === targetGroup);
+    return user && !user.groups.some(g => g.id === targetGroup);
   });
   
   return (
@@ -105,6 +114,15 @@ const UserList: React.FC<UserListProps> = ({
           />
         ))}
       </div>
+
+      <ConfirmDialog
+        isOpen={showConfirmAdd}
+        title="Add Users to Group"
+        message={`Are you sure you want to add ${selectedUsersWithoutGroup.length} selected user(s) to ${getGroupNameById(targetGroup)} group?`}
+        confirmLabel="Add Users"
+        onConfirm={confirmAddSelectedToGroup}
+        onCancel={() => setShowConfirmAdd(false)}
+      />
     </div>
   );
 };

@@ -26,20 +26,22 @@ const UserCard: React.FC<UserCardProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const [groupToRemove, setGroupToRemove] = useState<Group | null>(null);
   const { getGroupNameById } = useAppContext();
   
   const hasTargetGroup = user.groups.some(group => group.id === targetGroup);
-  const targetGroupObj = user.groups.find(group => group.id === targetGroup);
   
-  const handleRemoveFromGroup = () => {
+  const handleRemoveFromGroup = (group: Group) => {
+    setGroupToRemove(group);
     setShowConfirmRemove(true);
   };
 
   const confirmRemoveFromGroup = () => {
-    if (targetGroupObj) {
-      onRemoveFromGroup(user.id, targetGroupObj.id);
+    if (groupToRemove) {
+      onRemoveFromGroup(user.id, groupToRemove.id);
     }
     setShowConfirmRemove(false);
+    setGroupToRemove(null);
   };
 
   return (
@@ -56,7 +58,11 @@ const UserCard: React.FC<UserCardProps> = ({
               type="checkbox"
               checked={isSelected}
               onChange={() => onToggleSelect(user.id)}
-              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+              disabled={hasTargetGroup}
+              className={`
+                h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3
+                ${hasTargetGroup ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
             />
             <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-full mr-3">
               <UserIcon className="h-5 w-5 text-gray-500 dark:text-gray-300" />
@@ -72,23 +78,6 @@ const UserCard: React.FC<UserCardProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
-            {hasTargetGroup && targetGroupObj && (
-              <button
-              onClick={handleRemoveFromGroup}
-              disabled={isProcessing}
-              className={`
-                flex items-center px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md 
-                hover:bg-red-700 transition-colors
-                ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
-              `}
-              title={`Remove ${user.username} from ${getGroupNameById(targetGroupObj.id)} group`}
-            >
-              <UserMinus className="w-4 h-4 mr-1" />
-              Remove
-            </button>
-            
-            )}
-            
             <button 
               onClick={() => setExpanded(!expanded)} 
               className="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
@@ -109,11 +98,20 @@ const UserCard: React.FC<UserCardProps> = ({
             <div className="flex flex-wrap gap-2">
               {user.groups.length > 0 ? (
                 user.groups.map(group => (
-                  <GroupBadge 
-                    key={group.id} 
-                    name={getGroupNameById(group.id)} 
-                    isHighlighted={group.id === targetGroup} 
-                  />
+                  <div key={group.id} className="flex items-center">
+                    <GroupBadge 
+                      name={getGroupNameById(group.id)} 
+                      isHighlighted={true}
+                    />
+                    <button
+                      onClick={() => handleRemoveFromGroup(group)}
+                      disabled={isProcessing}
+                      className="ml-1 p-1 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                      title={`Remove ${user.username} from ${getGroupNameById(group.id)} group`}
+                    >
+                      <UserMinus className="h-3 w-3" />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No groups assigned</p>
@@ -126,10 +124,13 @@ const UserCard: React.FC<UserCardProps> = ({
       <ConfirmDialog
         isOpen={showConfirmRemove}
         title="Remove from Group"
-        message={`Are you sure you want to remove ${user.username} from ${targetGroupObj ? getGroupNameById(targetGroupObj.id) : ''} group?`}
+        message={`Are you sure you want to remove ${user.username} from ${groupToRemove ? getGroupNameById(groupToRemove.id) : ''} group?`}
         confirmLabel="Remove"
         onConfirm={confirmRemoveFromGroup}
-        onCancel={() => setShowConfirmRemove(false)}
+        onCancel={() => {
+          setShowConfirmRemove(false);
+          setGroupToRemove(null);
+        }}
       />
     </>
   );
