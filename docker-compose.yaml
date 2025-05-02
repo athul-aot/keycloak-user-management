@@ -7,10 +7,10 @@ services:
     ports:
       - "3000:80"
     environment:
-      - VITE_BASE_URL=http://192.168.5.4:8080
-      - VITE_REALM_NAME=forms-flow-ai
-      - VITE_CLIENT_ID=forms-flow-bpm
-      - VITE_CLIENT_SECRET=e4bdbd25-1467-4f7f-b993-bc4b1944c943
+      - VITE_BASE_URL=${VITE_BASE_URL}
+      - VITE_REALM_NAME=${VITE_REALM_NAME}
+      - VITE_CLIENT_ID=${VITE_CLIENT_ID}
+      - VITE_CLIENT_SECRET=${VITE_CLIENT_SECRET}
     restart: always
     networks:
       - keycloak-network
