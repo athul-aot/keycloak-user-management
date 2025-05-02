@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  keycloak-group-management:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_BASE_URL=${VITE_BASE_URL}
+      - VITE_REALM_NAME=${VITE_REALM_NAME}
+      - VITE_CLIENT_ID=${VITE_CLIENT_ID}
+      - VITE_CLIENT_SECRET=${VITE_CLIENT_SECRET}
+    restart: always
+    networks:
+      - keycloak-network
+networks:
+  keycloak-network:
+    driver: bridge
